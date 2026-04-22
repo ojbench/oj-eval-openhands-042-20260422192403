@@ -96,6 +96,9 @@ public:
             prev = node;
         }
         if (prev) prev->next = head;
+        // assign indices in traversal order starting from head
+        Node* cur = head;
+        for (int i = 0; i < list_size; ++i) { cur->idx = i; cur = cur->next; }
         BuildFastSearchList();
     }
 
