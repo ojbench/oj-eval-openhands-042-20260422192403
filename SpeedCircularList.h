@@ -112,31 +112,36 @@ public:
         fast_search_list_size = 0;
     }
 
+    Node* find_target_by_code(int code) {
+        if (!head) return nullptr;
+        if (code <= head->bound) return head;
+        if (fast_search_list_size <= 0) {
+            Node* cur = head->next;
+            while (code > cur->bound) cur = cur->next;
+            return cur;
+        }
+        Node* cur = head;
+        for (int k = fast_search_list_size - 1; k >= 0; --k) {
+            Node* nxt = cur->fast_search_list[k];
+            if (!nxt) continue;
+            if (nxt == head) continue; // do not wrap
+            if (nxt->bound > cur->bound && nxt->bound < code) cur = nxt;
+        }
+        while (cur->next != head && cur->next->bound < code) cur = cur->next;
+        return cur->next; // first >= code
+    }
+
     void put(std::string str, T value) {
         int code = GetHashCode(str);
         if (!head) return;
-        Node* target = nullptr;
-        if (code <= head->bound) {
-            target = head;
-        } else {
-            Node* cur = head->next;
-            while (code > cur->bound) cur = cur->next;
-            target = cur;
-        }
+        Node* target = find_target_by_code(code);
         target->kv_map[str] = value;
     }
 
     T get(std::string str) {
         int code = GetHashCode(str);
         if (!head) return T();
-        Node* target = nullptr;
-        if (code <= head->bound) {
-            target = head;
-        } else {
-            Node* cur = head->next;
-            while (code > cur->bound) cur = cur->next;
-            target = cur;
-        }
+        Node* target = find_target_by_code(code);
         auto it = target->kv_map.find(str);
         if (it == target->kv_map.end()) return T();
         return it->second;
