@@ -67,11 +67,15 @@ private:
             nodes.push_back(cur);
             cur = cur->next;
         }
+        // Initialize level 0 for all nodes first
         for (auto* node : nodes) {
-            if (fast_search_list_size > 0)
-                node->fast_search_list[0] = node->next;
-            for (int k = 1; k < fast_search_list_size; ++k) {
-                node->fast_search_list[k] = node->fast_search_list[k-1]->fast_search_list[k-1];
+            node->fast_search_list[0] = node->next;
+        }
+        // Build higher levels using previously built levels
+        for (int k = 1; k < fast_search_list_size; ++k) {
+            for (auto* node : nodes) {
+                Node* step = node->fast_search_list[k-1];
+                node->fast_search_list[k] = step->fast_search_list[k-1];
             }
         }
     }
