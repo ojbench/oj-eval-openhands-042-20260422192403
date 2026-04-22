@@ -26,6 +26,8 @@ public:
         Node* next = nullptr;
         Node** fast_search_list = nullptr;
         int idx = -1; // position in ring starting from head as 0
+        std::vector<int>* bounds_arr = nullptr;    // only set on head
+        std::vector<Node*>* nodes_arr = nullptr;   // only set on head
 
         Node(int b, int fast_size) : bound(b) {
             if (fast_size > 0) {
@@ -83,7 +85,13 @@ private:
 public:
     explicit SpeedCircularLinkedList(std::vector<int> node_bounds) {
         list_size = static_cast<int>(node_bounds.size());
-        fast_search_list_size = (list_size <= 1) ? 0 : log2(list_size);
+        if (list_size <= 1) {
+            fast_search_list_size = 0;
+        } else {
+            int cap = 1, s = 0;
+            while (cap < list_size) { cap <<= 1; ++s; }
+            fast_search_list_size = s; // ceil(log2(list_size))
+        }
         if (list_size == 0) {
             head = nullptr;
             return;
@@ -98,12 +106,23 @@ public:
         if (prev) prev->next = head;
         // assign indices in traversal order starting from head
         Node* cur = head;
-        for (int i = 0; i < list_size; ++i) { cur->idx = i; cur = cur->next; }
+        std::vector<Node*> temp_nodes;
+        temp_nodes.reserve(list_size);
+        for (int i = 0; i < list_size; ++i) {
+            cur->idx = i;
+            temp_nodes.push_back(cur);
+            cur = cur->next;
+        }
+        // prepare arrays for binary search at head
+        head->bounds_arr = new std::vector<int>(node_bounds);
+        head->nodes_arr = new std::vector<Node*>(temp_nodes.begin(), temp_nodes.end());
         BuildFastSearchList();
     }
 
     ~SpeedCircularLinkedList() {
         if (!head || list_size == 0) return;
+        if (head->bounds_arr) { delete head->bounds_arr; head->bounds_arr = nullptr; }
+        if (head->nodes_arr) { delete head->nodes_arr; head->nodes_arr = nullptr; }
         Node* cur = head;
         for (int i = 0; i < list_size; ++i) {
             Node* nxt = cur->next;
@@ -118,6 +137,16 @@ public:
     Node* find_target_by_code(int code) {
         if (!head) return nullptr;
         if (code <= head->bound) return head;
+        // Prefer binary search on prebuilt arrays for speed
+        if (head->bounds_arr && head->nodes_arr) {
+            const std::vector<int>& arr = *(head->bounds_arr);
+            const std::vector<Node*>& nodes = *(head->nodes_arr);
+            auto it = std::lower_bound(arr.begin(), arr.end(), code);
+            int idx = static_cast<int>(it - arr.begin());
+            if (idx <= 0) return head;
+            return nodes[idx];
+        }
+        // Fallback to fast search list if arrays are not available
         if (fast_search_list_size <= 0) {
             Node* cur = head->next;
             while (code > cur->bound) cur = cur->next;
@@ -131,7 +160,7 @@ public:
             if (nxt->bound > cur->bound && nxt->bound < code) cur = nxt;
         }
         while (cur->next != head && cur->next->bound < code) cur = cur->next;
-        return cur->next; // first >= code
+        return cur->next;
     }
 
     void put(std::string str, T value) {
